@@ -1,3 +1,4 @@
+import random
 from collections import defaultdict
 import json
 import os
@@ -18,13 +19,14 @@ class DataSource:
         self.disc_cols = cfg.FEATURE_ENG.DISCRETE_COLS
         self.cont_cols = cfg.FEATURE_ENG.CONTINUOUS_COLS
         # self.label_df = pd.read_csv(cfg.FILES.LABEL)
-        self.user2item2label = self.load_label_json()
-        self.test_pairs = pickle.load(open(cfg.FILES.SPLIT, 'rb'))
-        for usr, mlog in self.test_pairs:
-            del self.user2item2label[usr][mlog]
+        self.user2item2label, self.all_users, self.test_pairs = self.load_label_json()
 
-        self.load_from_json = cfg.FILES.LOAD_FROM_JSON
-        self.dump_to_json = cfg.FILES.DUMP_TO_JSON
+        self.item_size = cfg.TRAINING.ITEM_SIZE
+        self.negative_size = min(
+            max(1, int(self.item_size * cfg.TRAINING.NEGATIVE_RATIO)),
+            self.item_size - 1
+        )
+        self.positive_size = self.item_size - self.negative_size
 
         self.process_and_build_indices()
 
@@ -55,87 +57,73 @@ class DataSource:
 
     def load_label_json(self):
         user2item2label = json.load(open(self.cfg.FILES.LABEL))
+        test_pairs = pickle.load(open(self.cfg.FILES.SPLIT, 'rb'))
         formatted_user2item2label = {}
         for usr, item2label in user2item2label.items():
+            assert len(item2label) > 0
             formatted_user2item2label[int(usr)] = {}
             for item, label in item2label.items():
                 formatted_user2item2label[int(usr)][int(item)] = label['score']
         del user2item2label
-        return formatted_user2item2label
+
+        pairs_to_del = []
+        for usr, mlog in test_pairs:
+            del formatted_user2item2label[usr][mlog]
+            if len(formatted_user2item2label[usr]) == 0:
+                del formatted_user2item2label[usr]
+                pairs_to_del.append( (usr, mlog) )
+        for p in pairs_to_del:
+            test_pairs.remove(p)
+
+        all_users = list(formatted_user2item2label.keys())
+        return formatted_user2item2label, all_users, test_pairs
 
 
     def process_and_build_indices(self):
-        file_path = osp.join(os.getcwd(), "json")
-        if not self.load_from_json or not osp.exists(self.processes.USER.replace(".csv", "_disc.json")):
-            print("Loading user and item dataframe...")
-            self.user_df = pd.read_csv(self.cfg.FILES.USER)
-            self.item_df = pd.read_csv(self.cfg.FILES.ITEM)
-            self.user_df = DataSource._process(self.processes.USER, self.user_df)
-            self.item_df = DataSource._process(self.processes.ITEM, self.item_df)
-            self.user_df = self._encode(self.encoders.USER, self.user_df, self.user2item2label)
-            self.item_df = self._encode(self.encoders.ITEM, self.item_df, self.user2item2label)
+        print("Loading user and item dataframe...")
+        self.user_df = pd.read_csv(self.cfg.FILES.USER)
+        self.item_df = pd.read_csv(self.cfg.FILES.ITEM)
+        self.user_df = DataSource._process(self.processes.USER, self.user_df)
+        self.item_df = DataSource._process(self.processes.ITEM, self.item_df)
+        self.user_df = self._encode(self.encoders.USER, self.user_df, self.user2item2label)
+        self.item_df = self._encode(self.encoders.ITEM, self.item_df, self.user2item2label)
+        self.user_df.set_index("userIdx")
+        self.item_df.set_index("mlogindex")
 
-            print("Building indices for user dataframe...")
-            self.user2disc, self.user2cont = {}, {}
-            for uid in tqdm(self.user_df.userIdx):
-                self.user2disc[uid] = self.user_df.loc[uid, self.disc_cols.USER]
-                self.user2cont[uid] = self.user_df.loc[uid, self.cont_cols.USER]
+    def __len__(self):
+        return len(self.all_users)
 
-            print("Building indices for mlog dataframe...")
-            self.item2disc, self.item2cont = {}, {}
-            for mid in tqdm(self.item_df.mlogindex):
-                self.item2disc[mid] = self.item_df.loc[mid, self.disc_cols.ITEM]
-                self.item2cont[mid] = self.item_df.loc[mid, self.cont_cols.ITEM]
+    def __getitem__(self, idx):
+        user = self.all_users[idx]
+        user_feat = self.user_df.loc[user, self.disc_cols.USER + self.cont_cols.USER].values
+        positive_size = min(self.positive_size, len(self.user2item2label[user]))
+        positive_mlogs = random.sample(self.user2item2label[user].keys(), positive_size)
+        positive_mlogs = sorted(positive_mlogs, key=lambda x: self.user2item2label[user][x], reverse=True)
 
-            self.cardinality = {}
-            for col in self.disc_cols.USER:
-                assert col in self.user_df, f"{col} not found in user dataframe"
-                assert not np.any(self.user_df[col].isna().values)
-                self.cardinality[col] = self.user_df[col].nunique()
-            for col in self.disc_cols.ITEM:
-                assert col in self.item_df, f"{col} not found in item dataframe"
-                assert not np.any(self.item_df[col].isna().values)
-                self.cardinality[col] = self.item_df[col].nunique()
+        negative_size = self.item_size - positive_size
+        negative_mlogs = []
+        while len(negative_mlogs) < negative_size:
+            mlog = random.randint(0, len(self.item_df) - 1)
+            if mlog not in self.user2item2label[user] and (user, mlog) not in self.test_pairs:
+                negative_mlogs.append(mlog)
 
-            if self.dump_to_json:
-                if osp.exists(file_path):
-                    print(f"Warning: {file_path} exists, overwrite? Y/N")
-                    resp = input()
-                    if resp.lower() != 'yes' or resp.lower() != 'y':
-                        raise Exception("Terminated")
-                os.makedirs(file_path)
-                json.dump(self.user2disc, open(
-                    osp.join(file_path, osp.basename(self.processes.USER.replace(".csv", "_disc.json"))), "wb"))
-                json.dump(self.user2cont, open(
-                    osp.join(file_path, osp.basename(self.processes.USER.replace(".csv", "_cont.json"))), "wb"))
-                json.dump(self.item2disc, open(
-                    osp.join(file_path, osp.basename(self.processes.ITEM.replace(".csv", "_disc.json"))), "wb"))
-                json.dump(self.item2cont, open(
-                    osp.join(file_path, osp.basename(self.processes.ITEM.replace(".csv", "_cont.json"))), "wb"))
-                json.dump(self.cardinality, open(osp.join(file_path, "cardinality.json"), "wb"))
-        else:
-            print("Loading indices for user and mlog dataframe...")
-            self.user2disc = json.load(open(
-                osp.join(file_path, osp.basename(self.processes.USER.replace(".csv", "_disc.json"))), 'rb'))
-            self.user2cont = json.load(
-                osp.join(file_path, osp.basename(open(self.processes.USER.replace(".csv", "_cont.json"))), 'rb'))
-            self.item2disc = json.load(open(
-                osp.join(file_path, osp.basename(self.processes.ITEM.replace(".csv", "_disc.json"))), 'rb'))
-            self.item2cont = json.load(open(
-                osp.join(file_path, osp.basename(self.processes.ITEM.replace(".csv", "_cont.json"))), 'rb'))
-            self.cardinality = json.load(open(osp.join(file_path, "cardinality.json"), 'rb'))
-            for col in self.disc_cols.USER:
-                assert col in self.user_df, f"{col} not found in user dataframe"
-                assert col in self.cardinality, f"{col} not found in cardinality"
-            for col in self.disc_cols.ITEM:
-                assert col in self.item_df, f"{col} not found in item dataframe"
-                assert col in self.cardinality, f"{col} not found in cardinality"
+        mlogs = positive_mlogs + negative_mlogs
+        scores = np.zeros(len(mlogs))
+        scores[:len(positive_mlogs)] = np.array([self.user2item2label[user][mlog] for mlog in positive_mlogs])
+
+        item_feat = self.item_df.loc[mlogs, self.disc_cols.ITEM + self.cont_cols.ITEM].values
+        return user_feat, item_feat, scores
 
 
 if __name__ == "__main__":
     from netease_rank.config import BaseConfig
     cfg = BaseConfig()
     ds = DataSource(cfg)
+    import time
+    start = time.time()
+    for i in range(10000):
+        ds[i]
+    print(time.time() - start)
 
 
 

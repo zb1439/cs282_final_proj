@@ -48,7 +48,7 @@ _config_dict = dict(
                 # 'col_name', func, discrete, full_df_input (default false), new_name (default none)
                 ('age', lambda x: 0 if x < 18 else (1 if x < 30 else (2 if x < 45 else 3)), True),
                 ('registeredMonthCnt', lambda x: 0 if x < 25 else (1 if x < 50 else (2 if x < 75 else 3)), True),
-                ('followCnt', lambda x: np.log(x), False),
+                ('followCnt', lambda x: np.log(x + 1), False),
                 ('level', lambda x: int(x), True),
                 # ('userIdx', lambda x: x, True),
                 ('d_province', lambda x: x, True),
@@ -56,20 +56,20 @@ _config_dict = dict(
             ],
             ITEM=[
                 # ('mlogindex', lambda x: x, True),
-                ('mlog_userImprssionCount', lambda x: np.log(x), False),
-                ('mlog_userClickCount', lambda x: np.log(x), False),
-                ('mlog_userLikeCount', lambda x: np.log(x), False),
-                ('mlog_userCommentCount', lambda x: np.log(x), False),
-                ('mlog_userShareCount', lambda x: np.log(x), False),
-                ('mlog_userViewCommentCount', lambda x: np.log(x), False),
-                ('mlog_userIntoPersonalHomepageCount', lambda x: np.log(x), False),
-                ('mlog_userFollowCreatorCount', lambda x: np.log(x), False),
+                ('mlog_userImprssionCount', lambda x: np.log(x + 1), False),
+                ('mlog_userClickCount', lambda x: np.log(x + 1), False),
+                ('mlog_userLikeCount', lambda x: np.log(x+1), False),
+                ('mlog_userCommentCount', lambda x: np.log(x+1), False),
+                ('mlog_userShareCount', lambda x: np.log(x+1), False),
+                ('mlog_userViewCommentCount', lambda x: np.log(x+1), False),
+                ('mlog_userIntoPersonalHomepageCount', lambda x: np.log(x+1), False),
+                ('mlog_userFollowCreatorCount', lambda x: np.log(x+1), False),
                 ('mlog_publishTime', lambda x: 0 if x < 50 else (1 if x < 100 else (2 if x < 150 else 3.0)), True),
                 ('d_mlog_type', lambda x: int(x - 1), True),
                 ('d_creator_gender', lambda x: 0 if np.isnan(x) else x, True),
                 ('creator_registeredMonthCnt', lambda x: 0 if x < 25 else (1 if x < 50 else (2 if x < 75 else 3)), True),
-                ('creator_follows', lambda x: np.log(x), False),
-                ('creator_followeds', lambda x: np.log(x), False),
+                ('creator_follows', lambda x: np.log(x+1), False),
+                ('creator_followeds', lambda x: np.log(x+1), False),
                 ('d_creatorType', lambda x: int(x), True),
                 ('d_creator_level', lambda x: int(x), True)
             ],
@@ -101,6 +101,16 @@ _config_dict = dict(
     EVALUATION=dict(
         EVALUATORS=['HR', 'ndcg'],
         RANDOM_SAMPLE=100,
+    ),
+    TRAINING=dict(
+        ITEM_SIZE=16,
+        NEGATIVE_RATIO=0.5,
+        BATCH_SIZE=128,
+        EPOCHS=20,
+        LR=1e-4,
+        OPTIM="SGD",
+    ),
+    GLOBAL=dict(
         RANDOM_SEED=24,
     )
 )
