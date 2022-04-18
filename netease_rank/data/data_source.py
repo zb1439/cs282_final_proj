@@ -87,15 +87,19 @@ class DataSource:
         self.item_df = DataSource._process(self.processes.ITEM, self.item_df)
         self.user_df = self._encode(self.encoders.USER, self.user_df, self.user2item2label)
         self.item_df = self._encode(self.encoders.ITEM, self.item_df, self.user2item2label)
-        self.user_df.set_index("userIdx")
-        self.item_df.set_index("mlogindex")
+        self.user_df = self.user_df.set_index("userIdx")
+        self.item_df = self.item_df.set_index("mlogindex")
+        self.user_df["userIdx"] = self.user_df.index.values
+        self.item_df["mlogindex"] = self.item_df.index.values
+        self.user_df = self.user_df[self.disc_cols.USER + self.cont_cols.USER]
+        self.item_df = self.item_df[self.disc_cols.ITEM + self.cont_cols.ITEM]
 
     def __len__(self):
         return len(self.all_users)
 
     def __getitem__(self, idx):
         user = self.all_users[idx]
-        user_feat = self.user_df.loc[user, self.disc_cols.USER + self.cont_cols.USER].values
+        user_feat = self.user_df.loc[user].values
         positive_size = min(self.positive_size, len(self.user2item2label[user]))
         positive_mlogs = random.sample(self.user2item2label[user].keys(), positive_size)
         positive_mlogs = sorted(positive_mlogs, key=lambda x: self.user2item2label[user][x], reverse=True)
@@ -111,7 +115,7 @@ class DataSource:
         scores = np.zeros(len(mlogs))
         scores[:len(positive_mlogs)] = np.array([self.user2item2label[user][mlog] for mlog in positive_mlogs])
 
-        item_feat = self.item_df.loc[mlogs, self.disc_cols.ITEM + self.cont_cols.ITEM].values
+        item_feat = self.item_df.loc[mlogs].values
         return user_feat, item_feat, scores
 
 
