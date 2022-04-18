@@ -3,7 +3,9 @@
 # Copyright (c) BaseDetection, Inc. and its affiliates.
 
 import collections
+import numpy as np
 import os
+import os.path as osp
 import pprint
 import re
 import six
@@ -27,35 +29,73 @@ except ImportError:
     collectionsAbc = collections
 
 
+root = osp.dirname(osp.dirname(osp.dirname(__file__)))
+
+
 _config_dict = dict(
     FILES=dict(
-        USER='csv_data/user_final.csv',
-        ITEM='csv_data/mlog_final.csv',
-        LABEL='csv_data/im_score_final.csv',
-        SPLIT='csv_data/test_pairs.txt',
+        USER=osp.join(root, 'csv_data/user_final.csv'),
+        ITEM=osp.join(root, 'csv_data/mlog_final.csv'),
+        # LABEL='csv_data/im_score_final.csv',
+        LABEL=osp.join(root, 'csv_data/im_score_final_small.json'),
+        SPLIT=osp.join(root, 'csv_data/test_pairs_small.txt'),
         LOAD_FROM_JSON=False,
         DUMP_TO_JSON=True,
     ),
     FEATURE_ENG=dict(
         PREPROCESS=dict(
             USER=[
-                # 'col_name', func, discrete, full_df_input (default false), inplace (default true)
+                # 'col_name', func, discrete, full_df_input (default false), new_name (default none)
+                ('age', lambda x: 0 if x < 18 else (1 if x < 30 else (2 if x < 45 else 3)), True),
+                ('registeredMonthCnt', lambda x: 0 if x < 25 else (1 if x < 50 else (2 if x < 75 else 3)), True),
+                ('followCnt', lambda x: np.log(x), False),
+                ('level', lambda x: int(x), True),
+                # ('userIdx', lambda x: x, True),
+                ('d_province', lambda x: x, True),
+                ('d_gender', lambda x: x, True)
             ],
-            ITEM=[],
+            ITEM=[
+                # ('mlogindex', lambda x: x, True),
+                ('mlog_userImprssionCount', lambda x: np.log(x), False),
+                ('mlog_userClickCount', lambda x: np.log(x), False),
+                ('mlog_userLikeCount', lambda x: np.log(x), False),
+                ('mlog_userCommentCount', lambda x: np.log(x), False),
+                ('mlog_userShareCount', lambda x: np.log(x), False),
+                ('mlog_userViewCommentCount', lambda x: np.log(x), False),
+                ('mlog_userIntoPersonalHomepageCount', lambda x: np.log(x), False),
+                ('mlog_userFollowCreatorCount', lambda x: np.log(x), False),
+                ('mlog_publishTime', lambda x: 0 if x < 50 else (1 if x < 100 else (2 if x < 150 else 3.0)), True),
+                ('d_mlog_type', lambda x: int(x - 1), True),
+                ('d_creator_gender', lambda x: 0 if np.isnan(x) else x, True),
+                ('creator_registeredMonthCnt', lambda x: 0 if x < 25 else (1 if x < 50 else (2 if x < 75 else 3)), True),
+                ('creator_follows', lambda x: np.log(x), False),
+                ('creator_followeds', lambda x: np.log(x), False),
+                ('d_creatorType', lambda x: int(x), True),
+                ('d_creator_level', lambda x: int(x), True)
+            ],
+        ),
+        ENCODE=dict(
+            USER=[],
+            ITEM=[
+                ('d_creatorType', "LabelEncoder"),
+            ],
         ),
         DISCRETE_COLS=dict(
-            USER=[],
-            ITEM=[],
+            USER=['d_age', 'd_registeredMonthCnt', 'd_level', 'userIdx', 'd_province', 'd_gender'],
+            ITEM=['mlogindex', 'd_mlog_publishTime', 'd_mlog_type', 'd_creator_gender', 'd_creator_registeredMonthCnt',
+                  'd_creatorType', 'd_creator_level'],
         ),
         CONTINUOUS_COLS=dict(
-            USER=[],
-            ITEM=[],
+            USER=['followCnt'],
+            ITEM=['mlog_userImprssionCount', 'mlog_userClickCount', 'mlog_userLikeCount', 'mlog_userCommentCount',
+                  'mlog_userShareCount', 'mlog_userViewCommentCount', 'mlog_userIntoPersonalHomepageCount',
+                  'mlog_userFollowCreatorCount', 'creator_follows', 'creator_followeds'],
         ),
         TARGET="label",
     ),
     MODEL=dict(
-        SMALL_EMB_DIM=4,
-        LARGE_EMB_DIM=64,
+        SMALL_EMB_DIM="AUTO",
+        LARGE_EMB_DIM=128,
         NAME='DeepFM',
     ),
     EVALUATION=dict(
