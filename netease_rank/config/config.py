@@ -40,6 +40,7 @@ _config_dict = dict(
         # LABEL='csv_data/im_score_final.csv',
         LABEL=osp.join(root, 'csv_data/im_score_final_small.json'),
         SPLIT=osp.join(root, 'csv_data/test_pairs_small.txt'),
+        TEST=osp.join(root, 'csv_data/user2negative_test_samples.json'),
         LOAD_FROM_JSON=False,
         DUMP_TO_JSON=True,
     ),
@@ -105,7 +106,6 @@ _config_dict = dict(
     ),
     EVALUATION=dict(
         EVALUATORS=['HR', 'ndcg'],
-        RANDOM_SAMPLE=100,
     ),
     TRAINING=dict(
         ITEM_SIZE=16,
@@ -114,6 +114,16 @@ _config_dict = dict(
         EPOCHS=20,
         LR=1e-4,
         OPTIM="SGD",
+        LR_SCHEDULER=dict(
+            NAME="Dummy",
+            STEPS=[],
+        ),
+        CRITERIA=dict(
+            NAME="RankNet",
+        ),
+        RESUME=True,
+        EVAL_EPOCH=2,
+        INFO_ITER=100,
     ),
     GLOBAL=dict(
         RANDOM_SEED=24,

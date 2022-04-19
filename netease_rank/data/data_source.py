@@ -24,6 +24,10 @@ class DataSource:
         )
         self.positive_size = self.item_size - self.negative_size
 
+        self.test_negative_size = cfg.EVALUATION.RANDOM_SAMPLE
+
+        self.test_mode = False
+
         self.process_and_build_indices()
 
     @staticmethod
@@ -83,14 +87,22 @@ class DataSource:
         self.item_df = DataSource._process(self.processes.ITEM, self.item_df)
         self.user_df = self._encode(self.encoders.USER, self.user_df, self.user2item2label)
         self.item_df = self._encode(self.encoders.ITEM, self.item_df, self.user2item2label)
+
         self.user_df = self.user_df.set_index("userIdx")
         self.item_df = self.item_df.set_index("mlogindex")
         self.user_df["userIdx"] = self.user_df.index.values
         self.item_df["mlogindex"] = self.item_df.index.values
         self.user_df = self.user_df[self.disc_cols.USER + self.cont_cols.USER]
         self.item_df = self.item_df[self.disc_cols.ITEM + self.cont_cols.ITEM]
+
         self._cardinality = self.user_df.apply("nunique").to_dict()
         self._cardinality.update(self.item_df.apply("nunique").to_dict())
+
+        self.user2positive_test_item = {user: mlog for user, mlog in self.test_pairs}
+        user2negative_test_items = json.load(open(self.cfg.FILES.TEST))
+        self.user2negative_test_items = {}
+        for user, items in user2negative_test_items.items():
+            self.user2negative_test_items[int(user)] = items
 
     @property
     def cardinality(self):
@@ -103,6 +115,23 @@ class DataSource:
     def __getitem__(self, idx):
         user = self.all_users[idx]
         user_feat = self.user_df.loc[user].values
+        if self.test_mode:
+            positive_mlogs, negative_mlogs = self.get_test_mlogs(user)
+        else:
+            positive_mlogs, negative_mlogs = self.get_train_mlogs(user)
+        mlogs = positive_mlogs + negative_mlogs
+        scores = np.zeros(len(mlogs))
+        scores[:len(positive_mlogs)] = np.array([self.user2item2label[user][mlog] for mlog in positive_mlogs])
+
+        item_feat = self.item_df.loc[mlogs].values
+        return user_feat, item_feat, scores
+
+    def get_test_mlogs(self, user):
+        positive_mlogs = [self.user2positive_test_item[user]]
+        negative_mlogs = self.user2negative_test_items[user]
+        return positive_mlogs, negative_mlogs
+
+    def get_train_mlogs(self, user):
         positive_size = min(self.positive_size, len(self.user2item2label[user]))
         positive_mlogs = random.sample(self.user2item2label[user].keys(), positive_size)
         positive_mlogs = sorted(positive_mlogs, key=lambda x: self.user2item2label[user][x], reverse=True)
@@ -113,13 +142,7 @@ class DataSource:
             mlog = random.randint(0, len(self.item_df) - 1)
             if mlog not in self.user2item2label[user] and (user, mlog) not in self.test_pairs:
                 negative_mlogs.append(mlog)
-
-        mlogs = positive_mlogs + negative_mlogs
-        scores = np.zeros(len(mlogs))
-        scores[:len(positive_mlogs)] = np.array([self.user2item2label[user][mlog] for mlog in positive_mlogs])
-
-        item_feat = self.item_df.loc[mlogs].values
-        return user_feat, item_feat, scores
+        return positive_mlogs, negative_mlogs
 
 
 if __name__ == "__main__":

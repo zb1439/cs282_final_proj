@@ -20,13 +20,13 @@ class FM(nn.Module):
     def forward(self, fm_input):
         """
         :param fm_input: tensor of shape [*, field_size, dim]
-        :return: tensor of size [*, 1]
+        :return: tensor of size [*]
         """
         square_of_sum = torch.pow(torch.sum(fm_input, dim=-2, keepdim=True), 2)
         sum_of_square = torch.sum(fm_input * fm_input, dim=-2, keepdim=True)
         cross_term = square_of_sum - sum_of_square
         cross_term = 0.5 * torch.sum(cross_term, dim=-1, keepdim=False)
-        return cross_term
+        return cross_term.squeeze(-1)
 
 
 class FieldwiseLinear(nn.Module):
@@ -47,7 +47,7 @@ class FieldwiseLinear(nn.Module):
         """
         :param raw_feat: Raw input tensor before embedding layers in base model of shape [*, dim],
                          where the first len(self.sparse_feat_names) are expected to be the sparse non-encoded entries.
-        :return: Logits of shape [*, 1]
+        :return: Logits of shape [*]
         """
         sparse_feat = raw_feat[..., :len(self.sparse_feat_names)].long()
         dense_feat = raw_feat[..., len(self.sparse_feat_names):]
@@ -55,4 +55,4 @@ class FieldwiseLinear(nn.Module):
         for i, name in enumerate(self.sparse_feat_names):
             logits += self.sparse_weight[name](sparse_feat[..., i])
         logits += self.dense_fc(dense_feat)
-        return logits
+        return logits.squeeze(-1)

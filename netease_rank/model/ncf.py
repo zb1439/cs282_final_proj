@@ -20,4 +20,4 @@ class NCF(BaseModel):
         user_gmf = self.user_gmf(user_emb[..., :self.user_sparse_dim])
         item_gmf = self.item_gmf(item_emb[..., :self.item_sparse_dim])
         gmf_feat = user_gmf * item_gmf
-        return self.predictor(torch.cat([gmf_feat, dnn_feat], -1))
+        return self.predictor(torch.cat([gmf_feat, dnn_feat], -1)).squeeze(-1)

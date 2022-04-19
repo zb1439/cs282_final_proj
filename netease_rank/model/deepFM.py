@@ -21,5 +21,5 @@ class DeepFM(BaseModel):
         sparse_feat = sparse_feat.view(sparse_feat.size(0), sparse_feat.size(1),
                                        sparse_feat.size(2) // self.small_dim, self.small_dim)
         logits = self.fm(sparse_feat)
-        logits += self.deep_layers(torch.cat([user_feat, item_feat], -1))
+        logits += self.deep_layers(torch.cat([user_feat, item_feat], -1)).squeeze(-1)
         return logits

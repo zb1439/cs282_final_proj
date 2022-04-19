@@ -13,5 +13,5 @@ class MLP(BaseModel):
 
     def predict(self, user_emb, item_emb):
         emb = torch.cat([user_emb, item_emb], -1)
-        logits = self.mlp(emb)
+        logits = self.mlp(emb).squeeze(-1)
         return logits
