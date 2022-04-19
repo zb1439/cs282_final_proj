@@ -1,15 +1,11 @@
 import random
-from collections import defaultdict
 import json
-import os
-import os.path as osp
 import numpy as np
 import pandas as pd
 import pickle
 from tqdm import tqdm
 
-from netease_rank.data.encoders import ENCODERS
-# from .encoders import ENCODERS
+from .encoders import ENCODERS
 
 class DataSource:
     def __init__(self, cfg):
@@ -93,6 +89,13 @@ class DataSource:
         self.item_df["mlogindex"] = self.item_df.index.values
         self.user_df = self.user_df[self.disc_cols.USER + self.cont_cols.USER]
         self.item_df = self.item_df[self.disc_cols.ITEM + self.cont_cols.ITEM]
+        self._cardinality = self.user_df.apply("nunique").to_dict()
+        self._cardinality.update(self.item_df.apply("nunique").to_dict())
+
+    @property
+    def cardinality(self):
+        assert hasattr(self, "_cardinality")
+        return self._cardinality
 
     def __len__(self):
         return len(self.all_users)
@@ -121,17 +124,13 @@ class DataSource:
 
 if __name__ == "__main__":
     from netease_rank.config import BaseConfig
+    from torch.utils.data import DataLoader
+    import time
     cfg = BaseConfig()
     ds = DataSource(cfg)
-    import time
-    start = time.time()
-    for i in range(10000):
-        ds[i]
-    print(time.time() - start)
-
-
-
-
-
-
-
+    loader = iter(DataLoader(ds, batch_size=100, num_workers=4))
+    # start = time.time()
+    # for i in range(100):
+    #     next(loader)
+    # print(time.time() - start)
+    print(next(loader))

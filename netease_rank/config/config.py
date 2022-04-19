@@ -21,6 +21,7 @@ from .config_helper import (
     find_key,
     highlight,
 )
+from .preprocess_func import *
 
 # python 3.8+ compatibility
 try:
@@ -46,32 +47,32 @@ _config_dict = dict(
         PREPROCESS=dict(
             USER=[
                 # 'col_name', func, discrete, full_df_input (default false), new_name (default none)
-                ('age', lambda x: 0 if x < 18 else (1 if x < 30 else (2 if x < 45 else 3)), True),
-                ('registeredMonthCnt', lambda x: 0 if x < 25 else (1 if x < 50 else (2 if x < 75 else 3)), True),
-                ('followCnt', lambda x: np.log(x + 1), False),
-                ('level', lambda x: int(x), True),
+                ('age', age_categorize, True),
+                ('registeredMonthCnt', registered_month_categorize, True),
+                ('followCnt', log, False),
+                ('level', int, True),
                 # ('userIdx', lambda x: x, True),
-                ('d_province', lambda x: x, True),
-                ('d_gender', lambda x: x, True)
+                ('d_province', identity, True),
+                ('d_gender', identity, True)
             ],
             ITEM=[
                 # ('mlogindex', lambda x: x, True),
-                ('mlog_userImprssionCount', lambda x: np.log(x + 1), False),
-                ('mlog_userClickCount', lambda x: np.log(x + 1), False),
-                ('mlog_userLikeCount', lambda x: np.log(x+1), False),
-                ('mlog_userCommentCount', lambda x: np.log(x+1), False),
-                ('mlog_userShareCount', lambda x: np.log(x+1), False),
-                ('mlog_userViewCommentCount', lambda x: np.log(x+1), False),
-                ('mlog_userIntoPersonalHomepageCount', lambda x: np.log(x+1), False),
-                ('mlog_userFollowCreatorCount', lambda x: np.log(x+1), False),
-                ('mlog_publishTime', lambda x: 0 if x < 50 else (1 if x < 100 else (2 if x < 150 else 3.0)), True),
-                ('d_mlog_type', lambda x: int(x - 1), True),
-                ('d_creator_gender', lambda x: 0 if np.isnan(x) else x, True),
-                ('creator_registeredMonthCnt', lambda x: 0 if x < 25 else (1 if x < 50 else (2 if x < 75 else 3)), True),
-                ('creator_follows', lambda x: np.log(x+1), False),
-                ('creator_followeds', lambda x: np.log(x+1), False),
-                ('d_creatorType', lambda x: int(x), True),
-                ('d_creator_level', lambda x: int(x), True)
+                ('mlog_userImprssionCount', log, False),
+                ('mlog_userClickCount', log, False),
+                ('mlog_userLikeCount', log, False),
+                ('mlog_userCommentCount', log, False),
+                ('mlog_userShareCount', log, False),
+                ('mlog_userViewCommentCount', log, False),
+                ('mlog_userIntoPersonalHomepageCount', log, False),
+                ('mlog_userFollowCreatorCount', log, False),
+                ('mlog_publishTime', publish_time_categorize, True),
+                ('d_mlog_type', mlog_type_categorize, True),
+                ('d_creator_gender', gender_categorize, True),
+                ('creator_registeredMonthCnt', registered_month_categorize, True),
+                ('creator_follows', log, False),
+                ('creator_followeds', log, False),
+                ('d_creatorType', int, True),
+                ('d_creator_level', int, True)
             ],
         ),
         ENCODE=dict(
@@ -96,7 +97,11 @@ _config_dict = dict(
     MODEL=dict(
         SMALL_EMB_DIM="AUTO",
         LARGE_EMB_DIM=128,
-        NAME='DeepFM',
+        NAME="MLP",
+        FIELDWISE_LINEAR=False,
+        DEEP=dict(
+            HIDDEN_DIMS=[512, 256]
+        )
     ),
     EVALUATION=dict(
         EVALUATORS=['HR', 'ndcg'],
