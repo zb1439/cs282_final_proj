@@ -5,15 +5,15 @@ import torch.nn as nn
 class MLP(nn.Module):
     def __init__(self, hidden_dims, include_final=True):
         super().__init__()
-        layers = [nn.Linear(self.user_input_dim + self.item_input_dim, hidden_dims[0])]
-        for in_dim, out_dim in hidden_dims[1:-1], hidden_dims[2:]:
+        layers = []
+        for in_dim, out_dim in zip(hidden_dims[:-1], hidden_dims[1:]):
             layers.append(nn.Linear(in_dim, out_dim))
         if include_final:
             layers.append(nn.Linear(hidden_dims[-1], 1))
-        self.layers = nn.ModuleList(layers)
+        self.mlp_layers = nn.Sequential(*layers)
 
     def forward(self, x):
-        return self.layers(x)
+        return self.mlp_layers(x)
 
 
 class FM(nn.Module):

@@ -1,5 +1,4 @@
 from datetime import datetime
-import logging
 import os
 import torch
 from torch.utils.tensorboard import SummaryWriter
@@ -7,18 +6,21 @@ from torch.utils.data import DataLoader
 from torch.optim import SGD, Adam, AdamW
 from torch.optim.lr_scheduler import MultiStepLR
 
+from netease_rank.evaluator import EVALUATOR
 from netease_rank.model import LOSS
+from netease_rank.utils import logger
 
 
 class Trainer:
-    def __init__(self, cfg, data_source, model, evaluators={}):
+    def __init__(self, cfg, data_source, model):
+        self.cfg = cfg
         self.lr = cfg.TRAINING.LR
         self.epoch = cfg.TRAINING.EPOCHS
         self.bs = cfg.TRAINING.BATCH_SIZE
         self.cur_epoch = 0
         self.data_source = data_source
         self.model = model
-        self.evaluators = evaluators
+        self.evaluators = {name: EVALUATOR.get(name)(cfg, *kwargs) for name, kwargs in cfg.EVALUATION.EVALUATORS}
         self.eval_epoch = cfg.TRAINING.EVAL_EPOCH
         self.info_iter = cfg.TRAINING.INFO_ITER
         tensorboard_dir = os.path.join(os.getcwd(), "tensorboard")
@@ -44,23 +46,25 @@ class Trainer:
 
         self.criteria = LOSS.get(cfg.TRAINING.CRITERIA.NAME)(cfg)
 
-        if cfg.TRAINING.RESUME:
+        if cfg.GLOBAL.RESUME:
             self.resume()
 
         if torch.cuda.is_available():
             self.model.cuda()
             self.criteria.cuda()
 
-    def resume(self):
-        logging.info("Loading from local checkpoint...")
-        epochs = sorted(list(map(
-            lambda x: int(x[11:-4]),
-            filter(lambda x: x.startswith("checkpoint"), os.listdir(os.getcwd()))
-        )))
-        if len(epochs) == 0:
-            logging.warning("No checkpoint files found under the current directory: ", os.getcwd())
-        state_dict = torch.load(os.path.join(os.getcwd(), f"checkpoint_{epochs[-1]}.pth"))
+    def resume(self, ckpt_name=None):
+        if ckpt_name is None:
+            epochs = sorted(list(map(
+                lambda x: int(x[11:-4]),
+                filter(lambda x: x.startswith("checkpoint"), os.listdir(os.getcwd()))
+            )))
+            if len(epochs) == 0:
+                logger.warning("No checkpoint files found under the current directory: ", os.getcwd())
+            ckpt_name = f"checkpoint_{epochs[-1]}.pth"
+        state_dict = torch.load(os.path.join(os.getcwd(), ckpt_name))
         self.cur_epoch = state_dict["epoch"]
+        logger.info(f"Loading from local checkpoint epoch {self.cur_epoch}...")
         self.lr_scheduler.load_state_dict(state_dict["lr_scheduler"])
         self.optimizer.load_state_dict(state_dict["optimizer"])
         self.model.load_state_dict(state_dict["model"])
@@ -76,7 +80,9 @@ class Trainer:
         torch.save(state_dict, os.path.join(os.getcwd(), "checkpoint.pth"))
 
     def train(self):
-        loader = DataLoader(self.data_source, batch_size=self.bs, shuffle=True, num_workers=4)
+        logger.info("Training started")
+        loader = DataLoader(self.data_source, batch_size=self.bs,
+                            shuffle=True, num_workers=self.cfg.GLOBAL.NUM_WORKERS)
         start_epoch = self.cur_epoch
         for epoch in range(start_epoch, self.epoch):
             self.cur_epoch = epoch
@@ -94,14 +100,17 @@ class Trainer:
                 self.optimizer.step()
 
                 self.writer.add_scalar("training loss", loss.item(), epoch * len(loader) + i)
-                if (i + 1) % self.info_iter == 0:
+                if (i + 1) % self.info_iter == 0 or i == 0:
                     msg = "{} [EPOCH {} ITER {}] Loss: {:2.4f} ".format(
                         datetime.now().strftime("%H:%M:%S"), epoch, i, loss.item())
-                    top3_occur = ((torch.argsort(pred_scores[:, :3], dim=1, descending=True) < 3).sum()
+                    top3_occur = ((torch.argsort(pred_scores[:, :3] + torch.randn_like(pred_scores[:, :3]) * 1e-6,
+                                                 dim=1, descending=True) < 3).sum()
                                   / len(pred_scores)).mean()
+                    # print(pred_scores[:, :5], top3_occur)
+                    # raise
                     self.writer.add_scalar("top3 co-occurence", top3_occur.item(), epoch * len(loader) + i)
                     msg += "Top3 Co-occurence: {:1.2f}".format(top3_occur.item())
-                    logging.info(msg)
+                    logger.info(msg)
 
             self.lr_scheduler.step(epoch)
             if (epoch + 1) % self.eval_epoch == 0:
@@ -109,6 +118,25 @@ class Trainer:
                 for name, evaluator in self.evaluators.items():
                     metric = evaluator.eval(self.model, self.data_source)
                     metrics[name] = metric
-                    logging.info("[EPOCH {}] {}: {:2.4f}".format(epoch, name, metric))
+                    logger.info("[EPOCH {}] {}: {:2.4f}".format(epoch, name, metric))
                     self.writer.add_scalar(name, metric, (epoch + 1) * len(loader) - 1)
                 self.save(metrics)
+
+    def test(self, epoch=None, fp=None):
+        if epoch is not None:
+            ckpt_name = f"checkpoint_{epoch}.pth"
+            self.resume(ckpt_name)
+            if fp is None:
+                fp = open(os.path.join(os.getcwd(), 'metrics.txt'), 'w')
+            fp.write(f"Epoch: {epoch}")
+            for name, evaluator in self.evaluators.items():
+                metric = evaluator.eval(self.model, self.data_source)
+                fp.write("{}: {:2.4f}".format(name, metric))
+        else:
+            epochs = sorted(list(map(
+                lambda x: int(x[11:-4]),
+                filter(lambda x: x.startswith("checkpoint"), os.listdir(os.getcwd()))
+            )))
+            fp = open(os.path.join(os.getcwd(), 'metrics.txt'), 'w')
+            for epoch in epochs:
+                self.test(epoch, fp)

@@ -7,6 +7,7 @@ from tqdm import tqdm
 
 from .encoders import ENCODERS
 
+
 class DataSource:
     def __init__(self, cfg):
         self.cfg = cfg
@@ -15,7 +16,7 @@ class DataSource:
         self.disc_cols = cfg.FEATURE_ENG.DISCRETE_COLS
         self.cont_cols = cfg.FEATURE_ENG.CONTINUOUS_COLS
         # self.label_df = pd.read_csv(cfg.FILES.LABEL)
-        self.user2item2label, self.all_users, self.test_pairs = self.load_label_json()
+        self.user2item2label, self.user2test_label, self.all_users, self.test_pairs = self.load_label_json()
 
         self.item_size = cfg.TRAINING.ITEM_SIZE
         self.negative_size = min(
@@ -23,8 +24,6 @@ class DataSource:
             self.item_size - 1
         )
         self.positive_size = self.item_size - self.negative_size
-
-        self.test_negative_size = cfg.EVALUATION.RANDOM_SAMPLE
 
         self.test_mode = False
 
@@ -67,16 +66,20 @@ class DataSource:
         del user2item2label
 
         pairs_to_del = []
+        user2test_label = {}
         for usr, mlog in test_pairs:
+            score = formatted_user2item2label[usr][mlog]
             del formatted_user2item2label[usr][mlog]
             if len(formatted_user2item2label[usr]) == 0:
                 del formatted_user2item2label[usr]
                 pairs_to_del.append( (usr, mlog) )
+            else:
+                user2test_label[usr] = {mlog: score}
         for p in pairs_to_del:
             test_pairs.remove(p)
 
         all_users = list(formatted_user2item2label.keys())
-        return formatted_user2item2label, all_users, test_pairs
+        return formatted_user2item2label, user2test_label, all_users, test_pairs
 
 
     def process_and_build_indices(self):
@@ -121,9 +124,14 @@ class DataSource:
             positive_mlogs, negative_mlogs = self.get_train_mlogs(user)
         mlogs = positive_mlogs + negative_mlogs
         scores = np.zeros(len(mlogs))
-        scores[:len(positive_mlogs)] = np.array([self.user2item2label[user][mlog] for mlog in positive_mlogs])
+        if not self.test_mode:
+            scores[:len(positive_mlogs)] = np.array([self.user2item2label[user][mlog] for mlog in positive_mlogs])
+        else:
+            scores[:len(positive_mlogs)] = np.array([self.user2test_label[user][mlog] for mlog in positive_mlogs])
 
-        item_feat = self.item_df.loc[mlogs].values
+        user_feat = user_feat.astype(np.float32)
+        item_feat = self.item_df.loc[mlogs].values.astype(np.float32)
+        scores = scores.astype(np.float32)
         return user_feat, item_feat, scores
 
     def get_test_mlogs(self, user):
@@ -151,7 +159,8 @@ if __name__ == "__main__":
     import time
     cfg = BaseConfig()
     ds = DataSource(cfg)
-    loader = iter(DataLoader(ds, batch_size=100, num_workers=4))
+    ds.test_mode = True
+    loader = iter(DataLoader(ds, batch_size=100, num_workers=0))
     # start = time.time()
     # for i in range(100):
     #     next(loader)

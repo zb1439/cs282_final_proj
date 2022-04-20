@@ -12,6 +12,7 @@ MODELS = Registry("MODELS")
 @MODELS.register()
 class BaseModel(nn.Module):
     def __init__(self, cfg, cardinality):
+        super().__init__()
         self.cfg = cfg
         self.user_sparse_feature_names = cfg.FEATURE_ENG.DISCRETE_COLS.USER
         self.item_sparse_feature_names = cfg.FEATURE_ENG.DISCRETE_COLS.ITEM
@@ -30,14 +31,14 @@ class BaseModel(nn.Module):
 
     def _init_embededdings(self):
         emb_dict = {}
-        self.user_input_dim = len(self.cfg.FEATURE_ENG.CONTINUOUS_DIM.USER)
-        self.item_input_dim = len(self.cfg.FEATURE_ENG.CONTINUOUS_DIM.ITEM)
+        self.user_input_dim = len(self.cfg.FEATURE_ENG.CONTINUOUS_COLS.USER)
+        self.item_input_dim = len(self.cfg.FEATURE_ENG.CONTINUOUS_COLS.ITEM)
         for name in self.user_sparse_feature_names:
             if name == "userIdx":
                 emb_dict[name] = nn.Embedding(self.cardinality[name], self.large_dim)
                 self.user_input_dim += self.large_dim
             else:
-                dim = self.small_dim if self.small_dim != "auto" else 6 * int(self.cardinality[name] ** 0.25)
+                dim = self.small_dim if self.small_dim != "AUTO" else 6 * int(self.cardinality[name] ** 0.25)
                 emb_dict[name] = nn.Embedding(self.cardinality[name], dim)
                 self.user_input_dim += dim
         for name in self.item_sparse_feature_names:
@@ -45,21 +46,21 @@ class BaseModel(nn.Module):
                 emb_dict[name] = nn.Embedding(self.cardinality[name], self.large_dim)
                 self.item_input_dim += self.large_dim
             else:
-                dim = self.small_dim if self.small_dim != "auto" else 6 * int(self.cardinality[name] ** 0.25)
+                dim = self.small_dim if self.small_dim != "AUTO" else 6 * int(self.cardinality[name] ** 0.25)
                 emb_dict[name] = nn.Embedding(self.cardinality[name], dim)
                 self.item_input_dim += dim
         self.embeddings = nn.ModuleDict(emb_dict)
-        self.user_sparse_dim = self.user_input_dim - len(self.cfg.FEATURE_ENG.CONTINUOUS_DIM.USER)
-        self.item_sparse_dim = self.item_input_dim - len(self.cfg.FEATURE_ENG.CONTINUOUS_DIM.ITEM)
+        self.user_sparse_dim = self.user_input_dim - len(self.cfg.FEATURE_ENG.CONTINUOUS_COLS.USER)
+        self.item_sparse_dim = self.item_input_dim - len(self.cfg.FEATURE_ENG.CONTINUOUS_COLS.ITEM)
 
     def _init_modules(self):
         raise NotImplementedError
 
     def embed(self, user_feat, item_feat):
-        user_sparse_feat = user_feat[:len(self.user_sparse_feature_names)].long()
-        user_emb_feat = user_feat[len(self.user_dense_feature_names):]
-        item_sparse_feat = item_feat[:len(self.item_sparse_feature_names)].long()
-        item_emb_feat = item_feat[len(self.item_sparse_feature_names):]
+        user_sparse_feat = user_feat[:, :len(self.user_sparse_feature_names)].long()
+        user_emb_feat = user_feat[:, len(self.user_sparse_feature_names):]
+        item_sparse_feat = item_feat[:, :, :len(self.item_sparse_feature_names)].long()
+        item_emb_feat = item_feat[:, :, len(self.item_sparse_feature_names):]
 
         for i, name in enumerate(self.user_sparse_feature_names):
             user_emb_feat = torch.cat([user_emb_feat, self.embeddings[name](user_sparse_feat[:, i])], -1)
@@ -77,6 +78,11 @@ class BaseModel(nn.Module):
         return user_logits[:, None] + item_logits
 
     def predict(self, user_emb, item_emb):
+        """
+        :param user_emb: user feature after embedding layers
+        :param item_emb: item feature after embedding layers
+        :return: scores [batch_size]
+        """
         raise NotImplementedError
 
     def forward(self, user_feat, item_feat):

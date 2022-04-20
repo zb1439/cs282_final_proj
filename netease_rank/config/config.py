@@ -105,7 +105,10 @@ _config_dict = dict(
         )
     ),
     EVALUATION=dict(
-        EVALUATORS=['HR', 'ndcg'],
+        EVALUATORS=[
+            ["HitRate", dict(top_k=10)],
+            ["NDCG", dict(k=10)],
+        ],
     ),
     TRAINING=dict(
         ITEM_SIZE=16,
@@ -121,12 +124,15 @@ _config_dict = dict(
         CRITERIA=dict(
             NAME="RankNet",
         ),
-        RESUME=True,
         EVAL_EPOCH=2,
         INFO_ITER=100,
     ),
     GLOBAL=dict(
         RANDOM_SEED=24,
+        RESUME=False,
+        TRAIN=True,
+        TEST_EPOCH=-1,
+        NUM_WORKERS=1,
     )
 )
 

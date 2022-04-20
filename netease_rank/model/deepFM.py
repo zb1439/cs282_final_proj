@@ -11,7 +11,7 @@ class DeepFM(BaseModel):
         assert self.small_dim != "auto" and self.small_dim == self.large_dim, \
             "DeepFM requires all fields to have same length embeddings!"
         hidden_dims = self.cfg.MODEL.DEEP.HIDDEN_DIMS
-        self.deep_layers = MLP(hidden_dims)
+        self.deep_layers = MLP([self.user_input_dim + self.item_input_dim] + hidden_dims)
         self.fm = FM()
 
     def predict(self, user_feat, item_feat):

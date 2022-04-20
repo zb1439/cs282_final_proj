@@ -10,7 +10,7 @@ class NCF(BaseModel):
     def _init_modules(self):
         hidden_dims = self.cfg.MODEL.DEEP.HIDDEN_DIMS
         gmf_dim = self.cfg.MODEL.NCF.GMF_DIM
-        self.deep_layers = MLP(hidden_dims, include_final=False)
+        self.deep_layers = MLP([self.user_input_dim + self.item_input_dim] + hidden_dims, include_final=False)
         self.user_gmf = nn.Linear(self.user_sparse_dim, gmf_dim)
         self.item_gmf = nn.Linear(self.item_sparse_dim, gmf_dim)
         self.predictor = nn.Linear(gmf_dim * 2 + hidden_dims[-1], 1)
