@@ -103,13 +103,11 @@ class Trainer:
                 if (i + 1) % self.info_iter == 0 or i == 0:
                     msg = "{} [EPOCH {} ITER {}] Loss: {:2.4f} ".format(
                         datetime.now().strftime("%H:%M:%S"), epoch, i, loss.item())
-                    top3_occur = ((torch.argsort(pred_scores[:, :3] + torch.randn_like(pred_scores[:, :3]) * 1e-6,
-                                                 dim=1, descending=True) < 3).sum()
+                    top3_occur = ((torch.argsort(pred_scores + torch.randn_like(pred_scores) * 1e-6,
+                                                 dim=1, descending=True)[:, :3] < 3).sum()
                                   / len(pred_scores)).mean()
-                    # print(pred_scores[:, :5], top3_occur)
-                    # raise
                     self.writer.add_scalar("top3 co-occurence", top3_occur.item(), epoch * len(loader) + i)
-                    msg += "Top3 Co-occurence: {:1.2f}".format(top3_occur.item())
+                    msg += "Top3 Co-occurence: {:1.2f} out of 3.0".format(top3_occur.item())
                     logger.info(msg)
 
             self.lr_scheduler.step(epoch)
