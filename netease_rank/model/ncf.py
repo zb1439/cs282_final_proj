@@ -13,7 +13,7 @@ class NCF(BaseModel):
         self.deep_layers = MLP([self.user_input_dim + self.item_input_dim] + hidden_dims, include_final=False)
         self.user_gmf = nn.Linear(self.user_sparse_dim, gmf_dim)
         self.item_gmf = nn.Linear(self.item_sparse_dim, gmf_dim)
-        self.predictor = nn.Linear(gmf_dim * 2 + hidden_dims[-1], 1)
+        self.predictor = nn.Linear(gmf_dim + hidden_dims[-1], 1)
 
     def predict(self, user_emb, item_emb):
         dnn_feat = self.deep_layers(torch.cat([user_emb, item_emb], -1))

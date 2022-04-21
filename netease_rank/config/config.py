@@ -102,6 +102,9 @@ _config_dict = dict(
         FIELDWISE_LINEAR=False,
         DEEP=dict(
             HIDDEN_DIMS=[512, 256]
+        ),
+        NCF=dict(
+            GMF_DIM=128,
         )
     ),
     EVALUATION=dict(

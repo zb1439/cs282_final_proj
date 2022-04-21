@@ -88,12 +88,6 @@ class Trainer:
                             shuffle=True, num_workers=self.cfg.GLOBAL.NUM_WORKERS)
         start_epoch = self.cur_epoch
         for epoch in range(start_epoch, self.epoch):
-            metrics = self.evaluators.eval(self.model, self.data_source, self.eval_batches)
-            for name, metric in metrics.items():
-                logger.info("[EPOCH {}] {}: {:2.4f}".format(epoch, name, metric))
-                self.writer.add_scalar(name, metric, (epoch + 1) * len(loader) - 1)
-            self.save(metrics=metrics)
-
             self.cur_epoch = epoch
             for i, data in enumerate(loader):
                 self.optimizer.zero_grad()
