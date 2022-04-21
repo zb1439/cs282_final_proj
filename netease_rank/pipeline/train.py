@@ -6,7 +6,7 @@ from torch.utils.data import DataLoader
 from torch.optim import SGD, Adam, AdamW
 from torch.optim.lr_scheduler import MultiStepLR
 
-from netease_rank.evaluator import EVALUATOR
+from netease_rank.evaluator import Evaluator
 from netease_rank.model import LOSS
 from netease_rank.utils import logger
 
@@ -20,8 +20,9 @@ class Trainer:
         self.cur_epoch = 0
         self.data_source = data_source
         self.model = model
-        self.evaluators = {name: EVALUATOR.get(name)(cfg, *kwargs) for name, kwargs in cfg.EVALUATION.EVALUATORS}
+        self.evaluators = Evaluator(cfg)
         self.eval_epoch = cfg.TRAINING.EVAL_EPOCH
+        self.eval_batches = cfg.TRAINING.EVAL_BATCHES
         self.info_iter = cfg.TRAINING.INFO_ITER
         tensorboard_dir = os.path.join(os.getcwd(), "tensorboard")
         os.makedirs(tensorboard_dir, exist_ok=True)
@@ -74,10 +75,12 @@ class Trainer:
                       "optimizer": self.optimizer.state_dict()}
         if metrics is not None:
             state_dict.update(metrics)
-        if self.model.device != "cpu":
+        if torch.cuda.is_available():
             state_dict["model"] = self.model.cpu().state_dict()
             self.model = self.model.cuda()
-        torch.save(state_dict, os.path.join(os.getcwd(), "checkpoint.pth"))
+        else:
+            state_dict["model"] = self.model.state_dict()
+        torch.save(state_dict, os.path.join(os.getcwd(), f"checkpoint_{self.cur_epoch}.pth"))
 
     def train(self):
         logger.info("Training started")
@@ -85,6 +88,12 @@ class Trainer:
                             shuffle=True, num_workers=self.cfg.GLOBAL.NUM_WORKERS)
         start_epoch = self.cur_epoch
         for epoch in range(start_epoch, self.epoch):
+            metrics = self.evaluators.eval(self.model, self.data_source, self.eval_batches)
+            for name, metric in metrics.items():
+                logger.info("[EPOCH {}] {}: {:2.4f}".format(epoch, name, metric))
+                self.writer.add_scalar(name, metric, (epoch + 1) * len(loader) - 1)
+            self.save(metrics=metrics)
+
             self.cur_epoch = epoch
             for i, data in enumerate(loader):
                 self.optimizer.zero_grad()
@@ -112,13 +121,11 @@ class Trainer:
 
             self.lr_scheduler.step(epoch)
             if (epoch + 1) % self.eval_epoch == 0:
-                metrics = {}
-                for name, evaluator in self.evaluators.items():
-                    metric = evaluator.eval(self.model, self.data_source)
-                    metrics[name] = metric
+                metrics = self.evaluators.eval(self.model, self.data_source, self.eval_batches)
+                for name, metric in metrics.items():
                     logger.info("[EPOCH {}] {}: {:2.4f}".format(epoch, name, metric))
                     self.writer.add_scalar(name, metric, (epoch + 1) * len(loader) - 1)
-                self.save(metrics)
+                self.save(metrics=metrics)
 
     def test(self, epoch=None, fp=None):
         if epoch is not None:

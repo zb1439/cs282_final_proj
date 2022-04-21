@@ -125,6 +125,7 @@ _config_dict = dict(
             NAME="RankNet",
         ),
         EVAL_EPOCH=2,
+        EVAL_BATCHES=100,
         INFO_ITER=100,
     ),
     GLOBAL=dict(

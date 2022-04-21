@@ -3,41 +3,40 @@ import torch
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from netease_rank.utils import logger, Registry
-
-
-EVALUATOR = Registry("EVALUATOR")
-
 
 class Evaluator:
     def __init__(self, cfg):
         self.cfg = cfg
         self.bs = cfg.TRAINING.BATCH_SIZE
+        self.evaluators = {name: eval(name)(cfg, **kwargs) for name, kwargs in cfg.EVALUATION.EVALUATORS}
 
-    def eval(self, model, data_source):
-        logger.info(f"Evaluating {self.__class__.__name__}")
+    def eval(self, model, data_source, limit=-1):
         model.eval()
         data_source.test_mode = True
-        loader = DataLoader(data_source, batch_size=self.bs, shuffle=False, num_workers=4)
+        loader = DataLoader(data_source, batch_size=self.bs,
+                            shuffle=False, num_workers=self.cfg.GLOBAL.NUM_WORKERS)
 
-        metrics = []
-        for i, data in tqdm(enumerate(loader), len(loader)):
+        metrics = {name: [] for name in self.evaluators.keys()}
+        for i, data in enumerate(loader):
             user_feat, item_feat, scores = data
             pred_scores = model(user_feat, item_feat)
-            metrics.append(self.calculate(pred_scores, scores))
+            for n, ev in self.evaluators.items():
+                metrics[n].append(ev.calculate(pred_scores, scores))
+            if limit > 0 and i == limit:
+                break
+            if (i + 1) % 100 == 0:
+                print(f"{i+1} out of {len(loader)} evaluated")
 
         model.train()
         data_source.test_mode = False
-        return np.mean(metrics)
+        return {name: np.mean(met) for name, met in metrics.items()}
 
     def calculate(self, preds, scores):
         raise NotImplementedError
 
 
-@EVALUATOR.register()
-class HitRate(Evaluator):
+class HitRate:
     def __init__(self, cfg, top_k):
-        super(HitRate, self).__init__(cfg)
         self.top_k = top_k
 
     def calculate(self, preds, scores):
@@ -45,10 +44,8 @@ class HitRate(Evaluator):
         return (torch.argsort(preds, dim=-1, descending=True)[:, 0] < self.top_k).float().mean()
 
 
-@EVALUATOR.register()
-class NDCG(Evaluator):
+class NDCG:
     def __init__(self, cfg, k):
-        super(NDCG, self).__init__(cfg)
         self.k = k
 
     def calculate(self, preds, scores):
@@ -67,6 +64,7 @@ if __name__ == "__main__":
 
     cfg = BaseConfig()
     ds = DataSource(cfg)
+
     model = MLP(cfg, ds.cardinality)
     hr = HitRate(cfg, 10)
     hr.eval(model, ds)

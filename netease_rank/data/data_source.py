@@ -153,11 +153,17 @@ class DataSource:
         return positive_mlogs, negative_mlogs
 
 
+class SmallDataSource(DataSource):  # test utilities
+    def __len__(self):
+        return 526
+
+
 if __name__ == "__main__":
     from netease_rank.config import BaseConfig
     from torch.utils.data import DataLoader
     import time
     cfg = BaseConfig()
+    cfg.GLOBAL.NUM_WORKERS = 0
     ds = DataSource(cfg)
     ds.test_mode = True
     loader = iter(DataLoader(ds, batch_size=100, num_workers=0))
