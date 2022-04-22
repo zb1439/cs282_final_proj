@@ -19,6 +19,11 @@ class Evaluator:
         metrics = {name: [] for name in self.evaluators.keys()}
         for i, data in enumerate(loader):
             user_feat, item_feat, scores = data
+            if torch.cuda.is_available():
+                user_feat = user_feat.cuda()
+                item_feat = item_feat.cuda()
+                scores = scores.cuda()
+
             pred_scores = model(user_feat, item_feat)
             for n, ev in self.evaluators.items():
                 metrics[n].append(ev.calculate(pred_scores, scores))
