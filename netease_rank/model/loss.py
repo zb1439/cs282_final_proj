@@ -31,3 +31,10 @@ class RankNet(Loss):
         label_mat[label_mat < 0] = -1.
         label_mat[label_mat > 0] = 1.
         return F.binary_cross_entropy_with_logits(logit_mat, 0.5 * (1 + label_mat))
+
+
+@LOSS.register()
+class BCE(Loss):
+    def forward(self, logits, scores):
+        labels = (scores > 0).float()
+        return F.binary_cross_entropy_with_logits(logits, labels)
