@@ -12,7 +12,6 @@ def main_process(cfg):
     random.seed(seed)
     np.random.seed(seed)
     torch.random.manual_seed(seed)
-    torch.cuda.seed(seed)
 
     data_source = DataSource(cfg)
     model = MODELS.get(cfg.MODEL.NAME)(cfg, data_source.cardinality)

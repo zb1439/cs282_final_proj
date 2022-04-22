@@ -26,7 +26,10 @@ class Evaluator:
 
             pred_scores = model(user_feat, item_feat)
             for n, ev in self.evaluators.items():
-                metrics[n].append(ev.calculate(pred_scores, scores))
+                score = ev.calculate(pred_scores, scores)
+                if torch.cuda.is_available():
+                    score = score.cpu()
+                metrics[n].append(score)
             if limit > 0 and i == limit:
                 break
             if (i + 1) % 100 == 0:
