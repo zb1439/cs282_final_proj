@@ -80,7 +80,7 @@ class Trainer:
             self.model = self.model.cuda()
         else:
             state_dict["model"] = self.model.state_dict()
-        torch.save(state_dict, os.path.join(os.getcwd(), f"checkpoint_{self.cur_epoch}.pth"))
+        torch.save(state_dict, os.path.join(os.getcwd(), f"checkpoint_{self.cur_epoch + 1}.pth"))
 
     def train(self):
         logger.info("Training started")
@@ -114,12 +114,17 @@ class Trainer:
                     logger.info(msg)
 
             self.lr_scheduler.step(epoch)
-            if (epoch + 1) % self.eval_epoch == 0:
+            if (epoch + 1) % self.eval_epoch == 0 or epoch == self.epoch - 1:
                 metrics = self.evaluators.eval(self.model, self.data_source, self.eval_batches)
                 for name, metric in metrics.items():
                     logger.info("[EPOCH {}] {}: {:2.4f}".format(epoch, name, metric))
                     self.writer.add_scalar(name, metric, (epoch + 1) * len(loader) - 1)
                 self.save(metrics=metrics)
+
+        with open(os.path.join(os.getcwd(), "metrics.txt"), 'w') as fp:
+            metrics = self.evaluators.eval(self.model, self.data_source)
+            for name, metric in metrics.items():
+                fp.write("{}: {:2.4f}".format(name, metric))
 
     def test(self, epoch=None, fp=None):
         if epoch is not None:
@@ -128,8 +133,8 @@ class Trainer:
             if fp is None:
                 fp = open(os.path.join(os.getcwd(), 'metrics.txt'), 'w')
             fp.write(f"Epoch: {epoch}")
-            for name, evaluator in self.evaluators.items():
-                metric = evaluator.eval(self.model, self.data_source)
+            metrics = self.evaluators.eval(self.model, self.data_source)
+            for name, metric in metrics.items():
                 fp.write("{}: {:2.4f}".format(name, metric))
         else:
             epochs = sorted(list(map(
@@ -139,3 +144,4 @@ class Trainer:
             fp = open(os.path.join(os.getcwd(), 'metrics.txt'), 'w')
             for epoch in epochs:
                 self.test(epoch, fp)
+            fp.close()
