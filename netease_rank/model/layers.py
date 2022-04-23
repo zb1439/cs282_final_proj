@@ -51,8 +51,11 @@ class FieldwiseLinear(nn.Module):
         """
         sparse_feat = raw_feat[..., :len(self.sparse_feat_names)].long()
         dense_feat = raw_feat[..., len(self.sparse_feat_names):]
-        logits = torch.zeros((len(raw_feat), 1), device=raw_feat.device)
+        logits = None
         for i, name in enumerate(self.sparse_feat_names):
-            logits += self.sparse_weight[name](sparse_feat[..., i])
+            if logits is None:
+                logits = self.sparse_weight[name](sparse_feat[..., i])
+            else:
+                logits += self.sparse_weight[name](sparse_feat[..., i])
         logits += self.dense_fc(dense_feat)
         return logits.squeeze(-1)

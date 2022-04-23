@@ -6,11 +6,7 @@ from netease_rank.pipeline import main_process
 
 sys.path.append(os.getcwd())
 
-try:
-    from config import config  # noqa
-except ModuleNotFoundError:
-    print("Warning: local config not found, using the default BaseConfig")
-    config = BaseConfig()
+from config import config  # noqa
 
 
 def default_parser():
