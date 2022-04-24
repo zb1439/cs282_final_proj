@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 
 class MLP(nn.Module):
@@ -27,6 +28,50 @@ class FM(nn.Module):
         cross_term = square_of_sum - sum_of_square
         cross_term = 0.5 * torch.sum(cross_term, dim=-1, keepdim=False)
         return cross_term.squeeze(-1)
+
+
+class CIN(nn.Module):
+    def __init__(self, field_size, layer_size=(128, 128)):
+        super().__init__()
+        self.layer_size = layer_size
+        self.field_nums = [field_size]
+        self.conv1ds = nn.ModuleList()
+        for i, size in enumerate(self.layer_size):
+            self.conv1ds.append(
+                nn.Conv1d(self.field_nums[-1] * self.field_nums[0], size, 1))
+
+            if i != len(self.layer_size) - 1 and size % 2 > 0:
+                raise ValueError(
+                    "layer_size must be even number except for the last layer when split_half=True")
+                self.field_nums.append(size // 2)
+
+    def forward(self, cin_inputs):
+        """
+        :param cin_inputs: [*, field_size, dim]
+        :return: [*, out_dim], out_dim = sum(self.layer_size[:-1]) // 2 + self.layer_size[-1]
+        """
+        leading_dims = cin_inputs.size()[:-2]
+        cin_inputs = cin_inputs.flatten(0, -3)  # [b, f, d]
+        bs = cin_inputs.size(0)
+        dim = cin_inputs.size(-1)
+        hidden_outputs = [cin_inputs]
+        final_results = []
+        for i, size in enumerate(self.layer_size):
+            x = torch.einsum('bhd,bmd->bhmd', hidden_outputs[-1], hidden_outputs[0])
+            x = x.reshape(bs, hidden_outputs[-1].size(1) * hidden_outputs[0].size(1), dim)
+            x = self.conv1ds[i](x)
+            x = F.relu(x, inplace=True)
+            if i != len(self.layer_size) - 1:
+                next_hidden, direct_connect = torch.split(x, 2 * [size // 2], 1)
+            else:
+                direct_connect = curr_out
+                next_hidden = 0
+            final_results.append(direct_connect)
+            hidden_outputs.append(next_hidden)
+
+        result = torch.cat(final_results, dim=1).sum(-1)
+        result = result.view(*[d for d in leading_dims], -1)
+        return result
 
 
 class FieldwiseLinear(nn.Module):

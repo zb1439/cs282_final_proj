@@ -70,8 +70,9 @@ class Trainer:
         self.optimizer.load_state_dict(state_dict["optimizer"])
         self.model.load_state_dict(state_dict["model"])
 
-    def save(self, metrics=None):
-        state_dict = {"epoch": self.cur_epoch, "lr_scheduler": self.lr_scheduler.state_dict(),
+    def save(self, metrics=None, end_of_epoch=True):
+        epoch = self.cur_epoch + 1 if end_of_epoch else self.cur_epoch
+        state_dict = {"epoch": epoch, "lr_scheduler": self.lr_scheduler.state_dict(),
                       "optimizer": self.optimizer.state_dict()}
         if metrics is not None:
             state_dict.update(metrics)
