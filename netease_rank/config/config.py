@@ -108,6 +108,9 @@ _config_dict = dict(
         ),
         NCF=dict(
             GMF_DIM=128,
+        ),
+        EMBEDDING=dict(
+            WEIGHT_PATH=None
         )
     ),
     EVALUATION=dict(

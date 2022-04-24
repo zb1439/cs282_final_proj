@@ -2,7 +2,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from netease_rank.utils import Registry
+from netease_rank.utils import logger, Registry
 from .layers import FieldwiseLinear
 
 
@@ -53,8 +53,20 @@ class BaseModel(nn.Module):
         self.user_sparse_dim = self.user_input_dim - len(self.cfg.FEATURE_ENG.CONTINUOUS_COLS.USER)
         self.item_sparse_dim = self.item_input_dim - len(self.cfg.FEATURE_ENG.CONTINUOUS_COLS.ITEM)
 
+        if self.cfg.MODEL.EMBEDDING.WEIGHT_PATH is not None:
+            self.load_embeddings(torch.load(self.cfg.MODEL.EMBEDDING.WEIGHT_PATH))
+
     def _init_modules(self):
         raise NotImplementedError
+
+    def load_embeddings(self, state_dict):
+        incompatible_keys = self.load_state_dict(state_dict["model"], False)
+        for key in incompatible_keys.missing_keys:
+            if key.startswith("embeddings."):
+                logger.warning(f"Missing key: {key}")
+        for key in incompatible_keys.unexpected_keys:
+            if key.startswith("embeddings."):
+                logger.warning(f"Unexpected key: {key}")
 
     def embed(self, user_feat, item_feat):
         user_sparse_feat = user_feat[:, :len(self.user_sparse_feature_names)].long()
