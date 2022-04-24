@@ -4,4 +4,5 @@ from .dcn import DeepAndCross
 from .deepFM import DeepFM
 from .mlp import MLP
 from .ncf import NCF
+from .transformer import Transformer
 from .xDeepFM import XDeepFM
