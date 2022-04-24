@@ -43,7 +43,8 @@ class CIN(nn.Module):
             if i != len(self.layer_size) - 1 and size % 2 > 0:
                 raise ValueError(
                     "layer_size must be even number except for the last layer when split_half=True")
-                self.field_nums.append(size // 2)
+            self.field_nums.append(size // 2)
+        self.out_dim = sum(self.layer_size[:-1]) // 2 + self.layer_size[-1]
 
     def forward(self, cin_inputs):
         """
@@ -64,7 +65,7 @@ class CIN(nn.Module):
             if i != len(self.layer_size) - 1:
                 next_hidden, direct_connect = torch.split(x, 2 * [size // 2], 1)
             else:
-                direct_connect = curr_out
+                direct_connect = x
                 next_hidden = 0
             final_results.append(direct_connect)
             hidden_outputs.append(next_hidden)
