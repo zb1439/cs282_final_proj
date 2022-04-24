@@ -30,6 +30,35 @@ class FM(nn.Module):
         return cross_term.squeeze(-1)
 
 
+class CrossNet(nn.Module):
+    def __init__(self, in_features, layers=2):
+        super().__init__()
+        self.layers = layers
+        self.kernels = nn.Parameter(torch.Tensor(self.layers, in_features, 1))
+        self.biases = nn.Parameter(torch.Tensor(self.layers, in_features, 1))
+        for i in range(self.kernels.shape[0]):
+            nn.init.xavier_normal_(self.kernels[i])
+        for i in range(self.biases.shape[0]):
+            nn.init.zeros_(self.biases[i])
+
+    def forward(self, inputs):
+        """
+        :param inputs: [*, dim]
+        :return: [*, dim]
+        """
+        leading_dims = inputs.size()[:-1]
+        inputs = inputs.flatten(0, -2)
+        x_0 = inputs.unsqueeze(-1)
+        x_l = x_0
+        for i in range(self.layers):
+            xl_w = torch.tensordot(x_l, self.kernels[i], dims=([1], [0]))
+            dot_ = torch.matmul(x_0, xl_w)
+            x_l = dot_ + self.biases[i] + x_l
+        x_l = x_l.squeeze(-1)
+        x_l = x_l.view(*[dim for dim in leading_dims], -1)
+        return x_l
+
+
 class CIN(nn.Module):
     def __init__(self, field_size, layer_size=(128, 128)):
         super().__init__()

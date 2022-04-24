@@ -60,6 +60,7 @@ class BaseModel(nn.Module):
         raise NotImplementedError
 
     def load_embeddings(self, state_dict):
+        logger.info(f"Loading embedding weights from {state_dict}")
         incompatible_keys = self.load_state_dict(state_dict["model"], False)
         for key in incompatible_keys.missing_keys:
             if key.startswith("embeddings."):
