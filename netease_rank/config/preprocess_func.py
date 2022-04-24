@@ -28,3 +28,12 @@ def gender_categorize(gender):
     if np.isnan(gender):
         return 0
     return gender
+
+def compute_ctr(row):
+    return row['mlog_userClickCount'] / (row['mlog_userImprssionCount'] + 1)
+
+def compute_like_ratio(row):
+    return row['mlog_userLikeCount'] / (row['mlog_userImprssionCount'] + 1)
+
+def compute_comment_ratio(row):
+    return row['mlog_userCommentCount'] / (row['mlog_userImprssionCount'] + 1)

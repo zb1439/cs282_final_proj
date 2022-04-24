@@ -34,12 +34,12 @@ class DataSource:
         print("Preprocessing user and mlog dataframes ...")
         for proc in tqdm(processes):
             col, func, discrete = proc[:3]
-            assert col in df, f"{col} not found!"
             full_df_input = False if len(proc) < 4 else proc[3]
             new_col_name = col if len(proc) < 5 else proc[4]
             if full_df_input:
-                df[new_col_name] = df.apply(func)
+                df[new_col_name] = df.apply(func, axis=1)
             else:
+                assert col in df, f"{col} not found!"
                 df[new_col_name] = df[col].apply(func)
             if new_col_name != col:
                 df.drop(col, axis=1)
