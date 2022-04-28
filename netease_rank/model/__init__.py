@@ -5,5 +5,6 @@ from .deepFM import DeepFM
 from .mlp import MLP
 from .ncf import NCF
 from .self_attention import SelfAttention
+from .two_level_transformer import TwoLevelTransformer
 from .transformer import Transformer
 from .xDeepFM import XDeepFM

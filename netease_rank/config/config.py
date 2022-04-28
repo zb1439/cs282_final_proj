@@ -111,6 +111,9 @@ _config_dict = dict(
         ),
         EMBEDDING=dict(
             WEIGHT_PATH=None
+        ),
+        TRANSFORMER=dict(
+            SELF_ATTENTION_LAYERS=0,
         )
     ),
     EVALUATION=dict(
