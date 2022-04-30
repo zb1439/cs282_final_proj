@@ -16,7 +16,7 @@ class DataSource:
         self.disc_cols = cfg.FEATURE_ENG.DISCRETE_COLS
         self.cont_cols = cfg.FEATURE_ENG.CONTINUOUS_COLS
         # self.label_df = pd.read_csv(cfg.FILES.LABEL)
-        self.user2item2label, self.user2test_label, self.all_users, self.test_pairs = self.load_label_json()
+        self.user2item2label, self.user2test_label, self.train_users, self.test_users, self.test_pairs = self.load_label_json()
 
         self.item_size = cfg.TRAINING.ITEM_SIZE
         self.negative_size = min(
@@ -74,12 +74,16 @@ class DataSource:
                 del formatted_user2item2label[usr]
                 pairs_to_del.append( (usr, mlog) )
             else:
-                user2test_label[usr] = {mlog: score}
+                if usr not in user2test_label:
+                    user2test_label[usr] = {mlog: score}
+                else:
+                    user2test_label[usr][mlog] = score
         for p in pairs_to_del:
             test_pairs.remove(p)
 
-        all_users = list(formatted_user2item2label.keys())
-        return formatted_user2item2label, user2test_label, all_users, test_pairs
+        train_users = list(formatted_user2item2label.keys())
+        test_users = list(user2test_label.keys())
+        return formatted_user2item2label, user2test_label, train_users, test_users, test_pairs
 
 
     def process_and_build_indices(self):
@@ -101,7 +105,12 @@ class DataSource:
         self._cardinality = self.user_df.apply("nunique").to_dict()
         self._cardinality.update(self.item_df.apply("nunique").to_dict())
 
-        self.user2positive_test_item = {user: mlog for user, mlog in self.test_pairs}
+        self.user2positive_test_item = {}
+        for user, mlog in self.test_pairs:
+            if user in self.user2positive_test_item:
+                self.user2positive_test_item[user].append(mlog)
+            else:
+                self.user2positive_test_item[user] = [mlog]
         user2negative_test_items = json.load(open(self.cfg.FILES.TEST))
         self.user2negative_test_items = {}
         for user, items in user2negative_test_items.items():
@@ -113,14 +122,21 @@ class DataSource:
         return self._cardinality
 
     def __len__(self):
-        return len(self.all_users)
+        if self.test_mode:
+            return len(self.test_users)
+        else: 
+            return len(self.train_users)
 
     def __getitem__(self, idx):
-        user = self.all_users[idx]
-        user_feat = self.user_df.loc[user].values
+        
+        
         if self.test_mode:
+            user = self.test_users[idx]
+            user_feat = self.user_df.loc[user].values
             positive_mlogs, negative_mlogs = self.get_test_mlogs(user)
         else:
+            user = self.train_users[idx]
+            user_feat = self.user_df.loc[user].values
             positive_mlogs, negative_mlogs = self.get_train_mlogs(user)
         mlogs = positive_mlogs + negative_mlogs
         scores = np.zeros(len(mlogs))
@@ -134,6 +150,7 @@ class DataSource:
         scores = scores.astype(np.float32)
         return user_feat, item_feat, scores
 
+    # fix 
     def get_test_mlogs(self, user):
         positive_mlogs = [self.user2positive_test_item[user]]
         negative_mlogs = self.user2negative_test_items[user]
