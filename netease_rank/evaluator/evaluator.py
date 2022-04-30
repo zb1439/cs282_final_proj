@@ -79,7 +79,7 @@ class MultiNDCG:
         self.ninteract_user = ninteract_user
     
     def calculate(self, preds, scores):
-        discount = 1 / (np.log2(np.arange(self.top_k) + 2))
+        discount = 1 / (torch.log2(torch.arange(self.top_k, device=preds.device) + 2))
         preds += torch.randn_like(preds) * 1e-6
         rank_score, index = torch.sort(preds.detach(), dim=-1, descending=True)
         rank_score = torch.zeros(index.shape, device=preds.device)
