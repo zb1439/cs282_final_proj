@@ -119,8 +119,8 @@ _config_dict = dict(
     ),
     EVALUATION=dict(
         EVALUATORS=[
-            ["HitRate", dict(top_k=10)],
-            ["NDCG", dict(k=10)],
+            ["MultiHitRate", dict(top_k=10, ninteract_user=5)],
+            ["MultiNDCG", dict(top_k=10, ninteract_user=5)]
         ],
     ),
     TRAINING=dict(

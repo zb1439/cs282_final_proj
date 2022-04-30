@@ -60,6 +60,31 @@ class NDCG:
         ndcg[rank >= self.k] = 0
         return ndcg.mean()
 
+class MultiHitRate:
+    def __init__(self, cfg, top_k, ninteract_user):
+        self.top_k = top_k
+        self.ninteract_user = ninteract_user
+    
+    def calculate(self, preds, scores):
+        preds += torch.rand_like(preds) * 1e-6
+        hits = torch.argsort(preds, dim=-1, descending=True)[:, :self.ninteract_user] < self.top_k
+        return hits.float().mean()
+
+class MultiNDCG:
+    def __init__(self, cfg, top_k, ninteract_user):
+        self.top_k = top_k
+        self.ninteract_user = ninteract_user
+    
+    def calculate(self, preds, scores):
+        discount = 1 / (torch.log2(torch.arange(self.top_k, device=preds.device) + 2))
+        preds += torch.randn_like(preds) * 1e-6
+        rank_score, index = torch.sort(preds.detach(), dim=-1, descending=True)
+        rank_score = torch.zeros(index.shape, device=preds.device)
+        ranks = rank_score.scatter(1, index, scores)
+        idcg = torch.sum((2**scores[:, :self.top_k] - 1) * discount, dim=-1) + 1e-5
+        dcg = torch.sum((2**ranks[:, :self.top_k] - 1) * discount, dim=-1)
+        return torch.mean(dcg / idcg)
+
 
 if __name__ == "__main__":
     from netease_rank.config import BaseConfig
@@ -71,7 +96,10 @@ if __name__ == "__main__":
     ds = DataSource(cfg)
 
     model = MLP(cfg, ds.cardinality)
-    hr = HitRate(cfg, 10)
-    hr.eval(model, ds)
-    ndcg = NDCG(cfg, 10)
-    ndcg.eval(model, ds)
+    # hr = HitRate(cfg, 10)
+    # hr.eval(model, ds)
+    # ndcg = NDCG(cfg, 10)
+    # ndcg.eval(model, ds)
+    eval = Evaluator(cfg)
+    
+    eval.eval(model, ds)

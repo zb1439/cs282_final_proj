@@ -151,7 +151,7 @@ class DataSource:
         return user_feat, item_feat, scores
 
     def get_test_mlogs(self, user):
-        positive_mlogs = [self.user2positive_test_item[user]]
+        positive_mlogs = self.user2positive_test_item[user]
         negative_mlogs = self.user2negative_test_items[user]
         return positive_mlogs, negative_mlogs
 
