@@ -82,7 +82,7 @@ class MultiNDCG:
         discount = 1 / (np.log2(np.arange(self.top_k) + 2))
         preds += torch.randn_like(preds) * 1e-6
         rank_score, index = torch.sort(preds.detach(), dim=-1, descending=True)
-        rank_score = torch.zeros(index.shape)
+        rank_score = torch.zeros(index.shape, device=preds.device)
         ranks = rank_score.scatter(1, index, scores)
         idcg = torch.sum((2**scores[:, :self.top_k] - 1) * discount, dim=-1) + 1e-5
         dcg = torch.sum((2**ranks[:, :self.top_k] - 1) * discount, dim=-1)
