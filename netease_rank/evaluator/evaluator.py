@@ -39,9 +39,6 @@ class Evaluator:
         data_source.test_mode = False
         return {name: np.mean(met) for name, met in metrics.items()}
 
-    def calculate(self, preds, scores):
-        raise NotImplementedError
-
 
 class HitRate:
     def __init__(self, cfg, top_k):

@@ -150,7 +150,6 @@ class DataSource:
         scores = scores.astype(np.float32)
         return user_feat, item_feat, scores
 
-    # fix 
     def get_test_mlogs(self, user):
         positive_mlogs = [self.user2positive_test_item[user]]
         negative_mlogs = self.user2negative_test_items[user]
@@ -168,11 +167,6 @@ class DataSource:
             if mlog not in self.user2item2label[user] and (user, mlog) not in self.test_pairs:
                 negative_mlogs.append(mlog)
         return positive_mlogs, negative_mlogs
-
-
-class SmallDataSource(DataSource):  # test utilities
-    def __len__(self):
-        return 526
 
 
 if __name__ == "__main__":
