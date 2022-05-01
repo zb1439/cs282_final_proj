@@ -152,6 +152,7 @@ class DataSource:
 
     def get_test_mlogs(self, user):
         positive_mlogs = self.user2positive_test_item[user]
+        positive_mlogs = sorted(positive_mlogs, key=lambda x: self.user2test_label[user][x], reverse=True)
         negative_mlogs = self.user2negative_test_items[user]
         return positive_mlogs, negative_mlogs
 

@@ -24,16 +24,50 @@ def publish_time_categorize(time):
 def mlog_type_categorize(mlog):
     return int(mlog - 1)
 
+
 def gender_categorize(gender):
     if np.isnan(gender):
         return 0
     return gender
 
+
 def compute_ctr(row):
     return row['mlog_userClickCount'] / (row['mlog_userImprssionCount'] + 1)
+
 
 def compute_like_ratio(row):
     return row['mlog_userLikeCount'] / (row['mlog_userImprssionCount'] + 1)
 
+
 def compute_comment_ratio(row):
     return row['mlog_userCommentCount'] / (row['mlog_userImprssionCount'] + 1)
+
+
+def smallcount_to_id(value):
+    return (lambda x: 0 if x < 50
+    else (1 if x < 100
+          else (2 if x < 200
+                else (3 if x < 500
+                      else (3 if x < 1000
+                            else (4 if x < 5000
+                                  else 5))))))(value)
+
+
+def medcount_to_id(value):
+    return (lambda x: 0 if x < 50
+    else (1 if x < 100
+          else (2 if x < 200
+                else (3 if x < 10000
+                      else (3 if x < 100000
+                            else (4 if x < 500000
+                                  else 5))))))(value)
+
+
+def bigcount_to_id(value):
+    return (lambda x: 0 if x < 100
+    else (1 if x < 1000
+          else (2 if x < 10000
+                else (3 if x < 100000
+                      else (3 if x < 1000000
+                            else (4 if x < 5000000
+                                  else 5))))))(value)
