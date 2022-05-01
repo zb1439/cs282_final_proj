@@ -39,7 +39,7 @@ _config_dict = dict(
         ITEM=osp.join(root, 'csv_data/mlog_final.csv'),
         # LABEL='csv_data/im_score_final.csv',
         LABEL=osp.join(root, 'csv_data/im_score_final_small.json'),
-        SPLIT=osp.join(root, 'csv_data/test_pairs_small.txt'),
+        SPLIT=osp.join(root, 'csv_data/test_pairs_five.txt'),
         TEST=osp.join(root, 'csv_data/user2negative_test_samples.json'),
         LOAD_FROM_JSON=False,
         DUMP_TO_JSON=True,
@@ -118,8 +118,8 @@ _config_dict = dict(
     ),
     EVALUATION=dict(
         EVALUATORS=[
-            ["HitRate", dict(top_k=10)],
-            ["NDCG", dict(k=10)],
+            ["MultiHitRate", dict(top_k=10, ninteract_user=5)],
+            ["MultiNDCG", dict(top_k=10, ninteract_user=5)]
         ],
     ),
     TRAINING=dict(
