@@ -7,7 +7,7 @@ from tqdm import tqdm
 class Evaluator:
     def __init__(self, cfg):
         self.cfg = cfg
-        self.bs = cfg.TRAINING.BATCH_SIZE
+        self.bs = cfg.TRAINING.TEST_BATCH_SIZE
         self.evaluators = {name: eval(name)(cfg, **kwargs) for name, kwargs in cfg.EVALUATION.EVALUATORS}
 
     def eval(self, model, data_source, limit=-1):
