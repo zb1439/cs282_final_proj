@@ -1,12 +1,11 @@
 from netease_rank.config import BaseConfig
 
+from model import SelfAttentionNCF2
+
 
 _config_dict = dict(
-    TRAINING=dict(
-        BATCH_SIZE=256,
-    ),
     MODEL=dict(
-        NAME="NCF",
+        NAME="SelfAttentionNCF2",
     )
 )
 
