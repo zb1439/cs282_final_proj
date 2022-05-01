@@ -16,6 +16,23 @@ class MLP(nn.Module):
     def forward(self, x):
         return self.mlp_layers(x)
 
+class NCF(nn.Module):
+    def __init__(self, hidden_dims, gmf_dim, user_sparse_dim, item_sparse_dim):
+        super().__init__()
+        self.deep_layers = MLP(hidden_dims, include_final=False)
+        self.item_sparse_dim = item_sparse_dim
+        self.user_sparse_dim = user_sparse_dim
+        self.user_gmf = nn.Linear(user_sparse_dim, gmf_dim)
+        self.item_gmf = nn.Linear(item_sparse_dim, gmf_dim)
+        # self.predictor = nn.Linear(gmf_dim + hidden_dims[-1], 1)
+
+    def forward(self, user_emb, item_emb):
+        dnn_feat = self.deep_layers(torch.cat([user_emb, item_emb], -1))
+        user_gmf = self.user_gmf(user_emb[..., :self.user_sparse_dim])
+        item_gmf = self.item_gmf(item_emb[..., :self.item_sparse_dim])
+        gmf_feat = user_gmf * item_gmf
+        return torch.cat([gmf_feat, dnn_feat], -1)
+
 
 class FM(nn.Module):
     def forward(self, fm_input):
